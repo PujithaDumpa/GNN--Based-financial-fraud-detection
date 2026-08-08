@@ -6,12 +6,14 @@ from huggingface_hub import hf_hub_download
 from model import GAT
 
 
-st.title("GAT Model Test")
+st.title("GAT Prediction Test")
 
 DEVICE = torch.device("cpu")
 
 
-# Load graph
+# =========================
+# LOAD GRAPH
+# =========================
 
 st.write("Loading graph...")
 
@@ -30,7 +32,9 @@ data = torch.load(
 st.success("Graph loaded")
 
 
-# Load GAT
+# =========================
+# LOAD MODEL
+# =========================
 
 st.write("Loading GAT model...")
 
@@ -39,7 +43,6 @@ model = GAT(
     hidden_channels=128,
     out_channels=2
 )
-
 
 state_dict = torch.load(
     "best_gat_model.pth",
@@ -51,4 +54,22 @@ model.load_state_dict(state_dict)
 
 model.eval()
 
-st.success("GAT model loaded successfully!")
+st.success("GAT model loaded")
+
+
+# =========================
+# TEST PREDICTION
+# =========================
+
+st.write("Running prediction...")
+
+with torch.no_grad():
+
+    output = model(
+        data.x,
+        data.edge_index
+    )
+
+st.success("Prediction completed!")
+
+st.write("Output shape:", output.shape)
