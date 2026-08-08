@@ -142,7 +142,7 @@ def explain_transaction(
 
 
         k = min(
-            10,
+            5,
             feature_importance.numel()
         )
 
