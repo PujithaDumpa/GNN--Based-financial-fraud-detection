@@ -12,7 +12,6 @@ from torch_geometric.utils import k_hop_subgraph
 def create_explainer(model):
 
     return Explainer(
-
         model=model,
 
         algorithm=GNNExplainer(
@@ -47,16 +46,14 @@ def explain_transaction(
     device = torch.device("cpu")
 
     model = model.to(device)
-
     model.eval()
 
     x = data.x.to(device)
-
     edge_index = data.edge_index.to(device)
 
 
     # ========================================================
-    # 1. CREATE LOCAL 2-HOP SUBGRAPH
+    # 1. CREATE LOCAL 7-HOP SUBGRAPH
     # ========================================================
 
     subset, sub_edge_index, mapping, _ = k_hop_subgraph(
@@ -69,7 +66,6 @@ def explain_transaction(
 
         relabel_nodes=True
     )
-
 
     sub_x = x[subset]
 
@@ -92,14 +88,21 @@ def explain_transaction(
             dim=1
         )
 
-        prediction = output[
-            local_node_id
-        ].argmax().item()
+        prediction = (
+            output[
+                local_node_id
+            ]
+            .argmax()
+            .item()
+        )
 
-        confidence = probabilities[
-            local_node_id,
-            prediction
-        ].item()
+        confidence = (
+            probabilities[
+                local_node_id,
+                prediction
+            ]
+            .item()
+        )
 
 
     # ========================================================
@@ -129,16 +132,20 @@ def explain_transaction(
 
         if node_mask.dim() == 2:
 
-            feature_importance = node_mask[
-                local_node_id
-            ]
+            feature_importance = (
+                node_mask[
+                    local_node_id
+                ]
+            )
 
         else:
 
             feature_importance = node_mask
 
 
-        feature_importance = feature_importance.abs()
+        feature_importance = (
+            feature_importance.abs()
+        )
 
 
         k = min(
@@ -165,103 +172,131 @@ def explain_transaction(
                 )
             )
 
-    # ============================================================
-    # IMPORTANT NEIGHBORS
-    # ============================================================
 
-    neighbors = []
+    # ========================================================
+    # 5. IMPORTANT NEIGHBORS
+    # ========================================================
 
-    explanation_edge_mask = explanation.edge_mask
+    neighbors = {}
 
-    if explanation_edge_mask is not None:
-
-     for edge_idx in range(
-           explanation_edge_mask.numel()
-     ):
-
-        importance = explanation_edge_mask[
-            edge_idx
-        ].item()
-
-        source = sub_edge_index[
-            0,
-            edge_idx
-        ].item()
-
-        target = sub_edge_index[
-            1,
-            edge_idx
-        ].item()
-
-        # Keep only edges directly connected
-        # to the transaction being explained
-
-        if source == local_node_id:
-
-            neighbor_local = target
-
-        elif target == local_node_id:
-
-            neighbor_local = source
-
-        else:
-
-            continue
-
-        neighbor_original = subset[
-            neighbor_local
-        ].item()
-
-        # Remove self-loop
-
-        if neighbor_original == node_id:
-            continue
-
-        neighbors.append(
-            (
-                neighbor_original,
-                importance
-            )
-        )
-
-
-   # ============================================================
-   # SORT NEIGHBORS
-   # ============================================================
-
-    neighbors = sorted(
-      neighbors,
-      key=lambda x: x[1],
-      reverse=True 
+    explanation_edge_mask = (
+        explanation.edge_mask
     )
 
 
-# ============================================================
-# REMOVE DUPLICATES
-# ============================================================
+    if explanation_edge_mask is not None:
 
-    unique_neighbors = []
+        # Number of edges available in both tensors
 
-    seen = set()
+        num_edges = min(
+            explanation_edge_mask.numel(),
+            sub_edge_index.size(1)
+        )
 
-    for neighbor, importance in neighbors:
 
-       if neighbor not in seen:
+        for edge_idx in range(
+            num_edges
+        ):
 
-         unique_neighbors.append(
-            (
-                neighbor,
-                importance
+            importance = (
+                explanation_edge_mask[
+                    edge_idx
+                ]
+                .item()
             )
-         )
-
-         seen.add(neighbor)
 
 
-# Top 5
-    top_neighbors = unique_neighbors[:5]
+            source = (
+                sub_edge_index[
+                    0,
+                    edge_idx
+                ]
+                .item()
+            )
+
+
+            target = (
+                sub_edge_index[
+                    1,
+                    edge_idx
+                ]
+                .item()
+            )
+
+
+            # ------------------------------------------------
+            # Check if edge touches the selected transaction
+            # ------------------------------------------------
+
+            if source == local_node_id:
+
+                neighbor_local = target
+
+            elif target == local_node_id:
+
+                neighbor_local = source
+
+            else:
+
+                continue
+
+
+            # ------------------------------------------------
+            # Convert local node → original graph node
+            # ------------------------------------------------
+
+            neighbor_original = (
+                subset[
+                    neighbor_local
+                ]
+                .item()
+            )
+
+
+            # ------------------------------------------------
+            # Remove self-loop
+            # ------------------------------------------------
+
+            if neighbor_original == node_id:
+
+                continue
+
+
+            # ------------------------------------------------
+            # Keep highest importance for each neighbor
+            # ------------------------------------------------
+
+            if (
+                neighbor_original not in neighbors
+                or
+                importance >
+                neighbors[
+                    neighbor_original
+                ]
+            ):
+
+                neighbors[
+                    neighbor_original
+                ] = importance
+
+
     # ========================================================
-    # 7. RETURN
+    # 6. SORT NEIGHBORS
+    # ========================================================
+
+    top_neighbors = sorted(
+
+        neighbors.items(),
+
+        key=lambda x: x[1],
+
+        reverse=True
+
+    )[:5]
+
+
+    # ========================================================
+    # 7. RETURN RESULTS
     # ========================================================
 
     return {
