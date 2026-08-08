@@ -59,6 +59,7 @@ def load_data():
 
 
 data = load_data()
+st.write(data)
 
 
 st.success(
