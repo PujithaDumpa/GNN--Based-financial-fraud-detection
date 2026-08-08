@@ -191,10 +191,6 @@ if st.button(
 
     try:
 
-        with st.spinner("Preparing GNN explainer..."):
-
-            explainer = create_explainer(model)
-
         with st.spinner("Generating prediction and explanation..."):
 
             result = explain_transaction(
