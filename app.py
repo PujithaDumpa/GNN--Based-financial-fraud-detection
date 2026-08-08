@@ -1,14 +1,19 @@
 import streamlit as st
 import torch
+
 from huggingface_hub import hf_hub_download
 
 from model import GAT
-from explain import create_explainer, explain_transaction
+
+from explain import (
+    create_explainer,
+    explain_transaction
+)
 
 
-# --------------------------------------------------
+# ============================================================
 # PAGE CONFIGURATION
-# --------------------------------------------------
+# ============================================================
 
 st.set_page_config(
     page_title="GAT Fraud Detection",
@@ -16,7 +21,14 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🔍 Financial Fraud Detection using GAT")
+
+# ============================================================
+# TITLE
+# ============================================================
+
+st.title(
+    "🔍 Financial Fraud Detection using GAT"
+)
 
 st.write(
     "Enter a transaction ID to obtain a fraud prediction "
@@ -24,16 +36,16 @@ st.write(
 )
 
 
-# --------------------------------------------------
+# ============================================================
 # DEVICE
-# --------------------------------------------------
+# ============================================================
 
 DEVICE = torch.device("cpu")
 
 
-# --------------------------------------------------
-# LOAD GRAPH DATA
-# --------------------------------------------------
+# ============================================================
+# LOAD GRAPH
+# ============================================================
 
 @st.cache_resource
 def load_data():
@@ -50,23 +62,31 @@ def load_data():
         weights_only=False
     )
 
-    data = data.to(DEVICE)
-
     return data
 
 
-with st.spinner("Loading graph data..."):
+try:
+
     data = load_data()
 
+    st.success(
+        f"Graph loaded: {data.num_nodes:,} transactions"
+    )
 
-st.success(
-    f"Graph loaded: {data.num_nodes:,} transactions"
-)
+except Exception as e:
+
+    st.error(
+        "Failed to load graph."
+    )
+
+    st.exception(e)
+
+    st.stop()
 
 
-# --------------------------------------------------
-# LOAD TRAINED GAT MODEL
-# --------------------------------------------------
+# ============================================================
+# LOAD MODEL
+# ============================================================
 
 @st.cache_resource
 def load_model(num_features):
@@ -83,73 +103,124 @@ def load_model(num_features):
         weights_only=True
     )
 
-    model.load_state_dict(state_dict)
+    model.load_state_dict(
+        state_dict
+    )
 
     model = model.to(DEVICE)
+
     model.eval()
 
     return model
 
 
-with st.spinner("Loading trained GAT model..."):
-    model = load_model(data.num_features)
+try:
+
+    model = load_model(
+        data.num_features
+    )
+
+    st.success(
+        "GAT model loaded successfully."
+    )
+
+except Exception as e:
+
+    st.error(
+        "Failed to load GAT model."
+    )
+
+    st.exception(e)
+
+    st.stop()
 
 
-st.success("GAT model loaded successfully.")
+# ============================================================
+# CREATE GNN EXPLAINER
+# ============================================================
+
+@st.cache_resource
+def load_explainer(_model):
+
+    return create_explainer(
+        _model
+    )
 
 
-# --------------------------------------------------
-# USER INPUT
-# --------------------------------------------------
+try:
+
+    explainer = load_explainer(
+        model
+    )
+
+except Exception as e:
+
+    st.error(
+        "Failed to create GNNExplainer."
+    )
+
+    st.exception(e)
+
+    st.stop()
+
+
+# ============================================================
+# TRANSACTION INPUT
+# ============================================================
 
 node_id = st.number_input(
     "Enter Transaction ID",
+
     min_value=0,
-    max_value=int(data.num_nodes - 1),
+
+    max_value=data.num_nodes - 1,
+
     value=0,
+
     step=1
 )
 
 
-# --------------------------------------------------
+# ============================================================
 # EXPLAIN BUTTON
-# --------------------------------------------------
+# ============================================================
 
 if st.button(
     "Explain Transaction",
     type="primary"
 ):
 
-    # --------------------------------------------------
-    # CREATE EXPLAINER ONLY WHEN NEEDED
-    # --------------------------------------------------
-
-    with st.spinner("Preparing GNN explainer..."):
-
-        explainer = create_explainer(model)
-
-
-    # --------------------------------------------------
-    # GENERATE EXPLANATION
-    # --------------------------------------------------
+    node_id = int(node_id)
 
     with st.spinner(
-        "Generating prediction and explanation..."
+        "Running GNNExplainer on local transaction neighborhood..."
     ):
 
-        result = explain_transaction(
-            model,
-            data,
-            explainer,
-            int(node_id)
-        )
+        try:
 
+            result = explain_transaction(
+                model=model,
+                data=data,
+                explainer=explainer,
+                node_id=node_id
+            )
 
-    # --------------------------------------------------
+        except Exception as e:
+
+            st.error(
+                "Error while generating explanation."
+            )
+
+            st.exception(e)
+
+            st.stop()
+
+    # ========================================================
     # PREDICTION
-    # --------------------------------------------------
+    # ========================================================
 
     prediction = result["prediction"]
+
     confidence = result["confidence"]
 
 
@@ -172,22 +243,22 @@ if st.button(
     )
 
 
-    # --------------------------------------------------
+    # ========================================================
     # IMPORTANT NEIGHBORS
-    # --------------------------------------------------
+    # ========================================================
 
     st.subheader(
-        "Top Influential Neighbors"
+        "🔗 Top Influential Neighbors"
     )
-
 
     if result["neighbors"]:
 
-        for neighbor, attention in result["neighbors"]:
+        for neighbor, importance in result["neighbors"]:
 
             st.write(
                 f"Transaction **{neighbor}** — "
-                f"Attention: **{attention:.4f}**"
+                f"GNNExplainer Importance: "
+                f"**{importance:.4f}**"
             )
 
     else:
@@ -197,14 +268,13 @@ if st.button(
         )
 
 
-    # --------------------------------------------------
+    # ========================================================
     # IMPORTANT FEATURES
-    # --------------------------------------------------
+    # ========================================================
 
     st.subheader(
-        "Top Important Features"
+        "📊 Top Important Features"
     )
-
 
     if result["features"]:
 
@@ -212,7 +282,7 @@ if st.button(
 
             st.write(
                 f"Feature **{feature}** — "
-                f"Importance: **{importance:.4f}**"
+                f"Importance: **{importance:.6f}**"
             )
 
     else:
