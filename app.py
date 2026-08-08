@@ -1,121 +1,256 @@
+
 import streamlit as st
 import torch
 
 from huggingface_hub import hf_hub_download
-from torch_geometric.utils import k_hop_subgraph
 
 from model import GAT
 
+from explain import (
+    create_explainer,
+    explain_transaction
+)
 
-st.title("Local GAT Prediction Test")
+
+# ============================================================
+# PAGE
+# ============================================================
+
+st.set_page_config(
+    page_title="GAT Fraud Detection",
+    page_icon="🔍",
+    layout="wide"
+)
+
+
+st.title(
+    "🔍 Financial Fraud Detection using GAT"
+)
+
+st.write(
+    "Enter a transaction ID to obtain a fraud prediction "
+    "and GNNExplainer-based explanation."
+)
+
 
 DEVICE = torch.device("cpu")
 
 
-# =========================
+# ============================================================
 # LOAD GRAPH
-# =========================
+# ============================================================
 
-st.write("Loading graph...")
+@st.cache_resource
+def load_data():
 
-data_path = hf_hub_download(
-    repo_id="PujithaDumpa/elliptic-gat-data",
-    filename="elliptic_data.pt",
-    repo_type="model"
+    data_path = hf_hub_download(
+        repo_id="PujithaDumpa/elliptic-gat-data",
+        filename="elliptic_data.pt",
+        repo_type="model"
+    )
+
+    data = torch.load(
+        data_path,
+        map_location=DEVICE,
+        weights_only=False
+    )
+
+    return data
+
+
+data = load_data()
+
+
+st.success(
+    f"Graph loaded: {data.num_nodes:,} transactions"
 )
 
-data = torch.load(
-    data_path,
-    map_location=DEVICE,
-    weights_only=False
-)
 
-st.success("Graph loaded")
-
-
-# =========================
+# ============================================================
 # LOAD MODEL
-# =========================
+# ============================================================
 
-model = GAT(
-    in_channels=data.num_features,
-    hidden_channels=128,
-    out_channels=2
+@st.cache_resource
+def load_model(num_features):
+
+    model = GAT(
+        in_channels=num_features,
+        hidden_channels=128,
+        out_channels=2
+    )
+
+    state_dict = torch.load(
+        "best_gat_model.pth",
+        map_location=DEVICE,
+        weights_only=True
+    )
+
+    model.load_state_dict(
+        state_dict
+    )
+
+    model = model.to(DEVICE)
+
+    model.eval()
+
+    return model
+
+
+model = load_model(
+    data.num_features
 )
 
-state_dict = torch.load(
-    "best_gat_model.pth",
-    map_location=DEVICE,
-    weights_only=True
+
+st.success(
+    "GAT model loaded successfully."
 )
 
-model.load_state_dict(state_dict)
 
-model.eval()
-
-st.success("GAT model loaded")
-
-
-# =========================
-# SELECT TRANSACTION
-# =========================
+# ============================================================
+# TRANSACTION ID
+# ============================================================
 
 node_id = st.number_input(
-    "Transaction ID",
+    "Enter Transaction ID",
+
     min_value=0,
+
     max_value=data.num_nodes - 1,
+
     value=0,
+
     step=1
 )
 
 
-# =========================
-# LOCAL PREDICTION
-# =========================
+# ============================================================
+# EXPLAIN
+# ============================================================
 
-if st.button("Test Prediction"):
+if st.button(
+    "Explain Transaction",
+    type="primary"
+):
 
-    node_id = int(node_id)
+    try:
 
-    st.write("Creating local neighborhood...")
+        with st.spinner(
+            "Running GNNExplainer..."
+        ):
 
-    subset, sub_edge_index, mapping, _ = k_hop_subgraph(
-        node_id,
-        num_hops=2,
-        edge_index=data.edge_index,
-        relabel_nodes=True
-    )
+            explainer = create_explainer(
+                model
+            )
 
-    sub_x = data.x[subset]
+            result = explain_transaction(
+                model,
+                data,
+                explainer,
+                int(node_id)
+            )
 
-    local_node_id = mapping.item()
 
-    st.write("Local nodes:", sub_x.size(0))
-    st.write("Local edges:", sub_edge_index.size(1))
+        # ====================================================
+        # PREDICTION
+        # ====================================================
 
-    st.write("Running GAT on local graph...")
+        prediction = result["prediction"]
 
-    with torch.no_grad():
+        confidence = result["confidence"]
 
-        output = model(
-            sub_x,
-            sub_edge_index
+
+        if prediction == 0:
+
+            st.error(
+                "🚨 Fraudulent Transaction"
+            )
+
+        else:
+
+            st.success(
+                "✅ Legitimate Transaction"
+            )
+
+
+        st.metric(
+            "Confidence",
+            f"{confidence * 100:.2f}%"
         )
 
-    prediction = output[
-        local_node_id
-    ].argmax().item()
 
-    probability = torch.softmax(
-        output[local_node_id],
-        dim=0
-    )
+        # ====================================================
+        # LOCAL GRAPH
+        # ====================================================
 
-    st.success("Prediction completed!")
+        st.subheader(
+            "Local Graph"
+        )
 
-    st.write("Prediction:", prediction)
+        st.write(
+            "Local nodes:",
+            result["local_nodes"]
+        )
 
-    st.write(
-        "Confidence:",
-        probability[prediction].item()
-    )
+        st.write(
+            "Local edges:",
+            result["local_edges"]
+        )
+
+
+        # ====================================================
+        # NEIGHBORS
+        # ====================================================
+
+        st.subheader(
+            "Top Influential Neighbors"
+        )
+
+
+        if result["neighbors"]:
+
+            for neighbor, importance in result["neighbors"]:
+
+                st.write(
+                    f"Transaction **{neighbor}** — "
+                    f"Importance: **{importance:.4f}**"
+                )
+
+        else:
+
+            st.write(
+                "No influential neighbors found."
+            )
+
+
+        # ====================================================
+        # FEATURES
+        # ====================================================
+
+        st.subheader(
+            "Top Important Features"
+        )
+
+
+        if result["features"]:
+
+            for feature, importance in result["features"]:
+
+                st.write(
+                    f"Feature **{feature}** — "
+                    f"Importance: **{importance:.4f}**"
+                )
+
+        else:
+
+            st.write(
+                "No important features found."
+            )
+
+
+    except Exception as e:
+
+        st.error(
+            "❌ Error while generating explanation"
+        )
+
+        st.exception(e)
