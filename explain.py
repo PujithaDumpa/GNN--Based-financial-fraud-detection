@@ -15,7 +15,7 @@ def create_explainer(model):
         model=model,
 
         algorithm=GNNExplainer(
-            epochs=100
+            epochs=20
         ),
 
         explanation_type="model",
@@ -92,6 +92,8 @@ def explain_transaction(
     )
 
     sub_x = x[subset]
+    print("Subgraph nodes:", sub_x.size(0))
+    print("Subgraph edges:", sub_edge_index.size(1))
 
     local_node_id = mapping.item()
 
