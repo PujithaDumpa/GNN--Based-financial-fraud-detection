@@ -65,7 +65,7 @@ st.write(data)
 # LOAD ORIGINAL ELLIPTIC TRANSACTION IDs
 # ============================================================
 
-classes = pd.read_csv("classes.csv")
+classes = pd.read_csv("elliptic_txs_classes.csv")
 
 if len(classes) != data.num_nodes:
 
