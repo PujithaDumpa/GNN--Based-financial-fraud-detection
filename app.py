@@ -1,251 +1,30 @@
 import streamlit as st
 import torch
-
 from huggingface_hub import hf_hub_download
 
-from model import GAT
+st.title("GAT Fraud Detection")
 
-from explain import (
-    create_explainer,
-    explain_transaction
-)
-
-
-# ============================================================
-# PAGE CONFIGURATION
-# ============================================================
-
-st.set_page_config(
-    page_title="GAT Fraud Detection",
-    page_icon="🔍",
-    layout="wide"
-)
-
-
-# ============================================================
-# TITLE
-# ============================================================
-
-st.title(
-    "🔍 Financial Fraud Detection using GAT"
-)
-
-st.write(
-    "Enter a transaction ID to obtain a fraud prediction "
-    "and explainability results."
-)
-
-
-# ============================================================
-# DEVICE
-# ============================================================
+st.write("App started")
 
 DEVICE = torch.device("cpu")
 
+st.write("Trying to load graph...")
 
-# ============================================================
-# LOAD GRAPH
-# ============================================================
-
-@st.cache_resource
-def load_data():
-
-    data_path = hf_hub_download(
-        repo_id="PujithaDumpa/elliptic-gat-data",
-        filename="elliptic_data.pt",
-        repo_type="model"
-    )
-
-    data = torch.load(
-        data_path,
-        map_location=DEVICE,
-        weights_only=False
-    )
-
-    return data
-
-
-try:
-
-    data = load_data()
-
-    st.success(
-        f"Graph loaded: {data.num_nodes:,} transactions"
-    )
-
-except Exception as e:
-
-    st.error(
-        "Failed to load graph."
-    )
-
-    st.exception(e)
-
-    st.stop()
-
-
-# ============================================================
-# LOAD MODEL
-# ============================================================
-
-@st.cache_resource
-def load_model(num_features):
-
-    model = GAT(
-        in_channels=num_features,
-        hidden_channels=128,
-        out_channels=2
-    )
-
-    state_dict = torch.load(
-        "best_gat_model.pth",
-        map_location=DEVICE,
-        weights_only=True
-    )
-
-    model.load_state_dict(
-        state_dict
-    )
-
-    model = model.to(DEVICE)
-
-    model.eval()
-
-    return model
-
-
-try:
-
-    model = load_model(
-        data.num_features
-    )
-
-    st.success(
-        "GAT model loaded successfully."
-    )
-
-except Exception as e:
-
-    st.error(
-        "Failed to load GAT model."
-    )
-
-    st.exception(e)
-
-    st.stop()
-
-
-# ============================================================
-# CREATE GNN EXPLAINER
-# ============================================================
-
-@st.cache_resource
-def load_explainer(_model):
-
-    return create_explainer(
-        _model
-    )
-
-
-try:
-
-    explainer = load_explainer(
-        model
-    )
-
-except Exception as e:
-
-    st.error(
-        "Failed to create GNNExplainer."
-    )
-
-    st.exception(e)
-
-    st.stop()
-
-
-# ============================================================
-# TRANSACTION INPUT
-# ============================================================
-
-node_id = st.number_input(
-    "Enter Transaction ID",
-
-    min_value=0,
-
-    max_value=data.num_nodes - 1,
-
-    value=0,
-
-    step=1
+data_path = hf_hub_download(
+    repo_id="PujithaDumpa/elliptic-gat-data",
+    filename="elliptic_data.pt",
+    repo_type="model"
 )
 
+st.write("Graph file downloaded")
 
-# ============================================================
-# EXPLAIN BUTTON
-# ============================================================
-if st.button(
-    "Explain Transaction",
-    type="primary"
-):
+data = torch.load(
+    data_path,
+    map_location=DEVICE,
+    weights_only=False
+)
 
-    try:
+st.success("Graph loaded successfully!")
 
-        with st.spinner("Generating prediction and explanation..."):
-
-            result = explain_transaction(
-                model,
-                data,
-                explainer,
-                int(node_id)
-            )
-
-    except Exception as e:
-
-        st.error("❌ Error while generating explanation")
-        st.exception(e)
-        st.stop()
-
-    # Prediction
-    prediction = result["prediction"]
-    confidence = result["confidence"]
-
-    if prediction == 0:
-        st.error("🚨 Fraudulent Transaction")
-    else:
-        st.success("✅ Legitimate Transaction")
-
-    st.metric(
-        "Confidence",
-        f"{confidence * 100:.2f}%"
-    )
-
-    # Important neighbors
-    st.subheader("Top Influential Neighbors")
-
-    if result["neighbors"]:
-
-        for neighbor, attention in result["neighbors"]:
-
-            st.write(
-                f"Transaction **{neighbor}** — "
-                f"Attention: **{attention:.4f}**"
-            )
-
-    else:
-        st.write("No influential neighbors found.")
-
-    # Important features
-    st.subheader("Top Important Features")
-
-    if result["features"]:
-
-        for feature, importance in result["features"]:
-
-            st.write(
-                f"Feature **{feature}** — "
-                f"Importance: **{importance:.4f}**"
-            )
-
-    else:
-        st.write("No important features found.")
+st.write("Number of transactions:", data.num_nodes)
+st.write("Number of features:", data.num_features)
