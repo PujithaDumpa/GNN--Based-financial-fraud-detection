@@ -286,12 +286,12 @@ if st.button(
 
         if result["features"]:
 
-            for feature, importance in result["features"]:
+            for txid, importance in result["neighbors"]:
 
-                st.write(
-                    f"Feature **{feature}** — "
-                    f"Importance: **{importance:.4f}**"
-                )
+               st.write(
+                  f"Transaction **{txid}** — "
+                  f"GNNExplainer Importance: **{importance:.4f}**"
+               )
 
         else:
 
