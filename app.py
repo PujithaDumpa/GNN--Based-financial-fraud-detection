@@ -3,10 +3,7 @@ import torch
 from huggingface_hub import hf_hub_download
 
 from model import GAT
-from explain import (
-    create_explainer,
-    explain_transaction
-)
+from explain import create_explainer, explain_transaction
 
 
 # --------------------------------------------------
@@ -28,6 +25,13 @@ st.write(
 
 
 # --------------------------------------------------
+# DEVICE
+# --------------------------------------------------
+
+DEVICE = torch.device("cpu")
+
+
+# --------------------------------------------------
 # LOAD GRAPH DATA
 # --------------------------------------------------
 
@@ -42,14 +46,22 @@ def load_data():
 
     data = torch.load(
         data_path,
-        map_location=torch.device("cpu"),
+        map_location=DEVICE,
         weights_only=False
     )
+
+    data = data.to(DEVICE)
 
     return data
 
 
-data = load_data()
+with st.spinner("Loading graph data..."):
+    data = load_data()
+
+
+st.success(
+    f"Graph loaded: {data.num_nodes:,} transactions"
+)
 
 
 # --------------------------------------------------
@@ -65,34 +77,25 @@ def load_model(num_features):
         out_channels=2
     )
 
-    model.load_state_dict(
-        torch.load(
-            "best_gat_model.pth",
-            map_location=torch.device("cpu"),
-            weights_only=True
-        )
+    state_dict = torch.load(
+        "best_gat_model.pth",
+        map_location=DEVICE,
+        weights_only=True
     )
 
-    model = model.to("cpu")
+    model.load_state_dict(state_dict)
+
+    model = model.to(DEVICE)
     model.eval()
 
     return model
 
 
-model = load_model(data.num_features)
+with st.spinner("Loading trained GAT model..."):
+    model = load_model(data.num_features)
 
 
-# --------------------------------------------------
-# CREATE EXPLAINER
-# --------------------------------------------------
-
-@st.cache_resource
-def load_explainer(_model):
-
-    return create_explainer(_model)
-
-
-explainer = load_explainer(model)
+st.success("GAT model loaded successfully.")
 
 
 # --------------------------------------------------
@@ -102,7 +105,7 @@ explainer = load_explainer(model)
 node_id = st.number_input(
     "Enter Transaction ID",
     min_value=0,
-    max_value=data.num_nodes - 1,
+    max_value=int(data.num_nodes - 1),
     value=0,
     step=1
 )
@@ -117,6 +120,19 @@ if st.button(
     type="primary"
 ):
 
+    # --------------------------------------------------
+    # CREATE EXPLAINER ONLY WHEN NEEDED
+    # --------------------------------------------------
+
+    with st.spinner("Preparing GNN explainer..."):
+
+        explainer = create_explainer(model)
+
+
+    # --------------------------------------------------
+    # GENERATE EXPLANATION
+    # --------------------------------------------------
+
     with st.spinner(
         "Generating prediction and explanation..."
     ):
@@ -128,12 +144,14 @@ if st.button(
             int(node_id)
         )
 
+
     # --------------------------------------------------
     # PREDICTION
     # --------------------------------------------------
 
     prediction = result["prediction"]
     confidence = result["confidence"]
+
 
     if prediction == 0:
 
@@ -146,6 +164,7 @@ if st.button(
         st.success(
             "✅ Legitimate Transaction"
         )
+
 
     st.metric(
         "Confidence",
@@ -160,6 +179,7 @@ if st.button(
     st.subheader(
         "Top Influential Neighbors"
     )
+
 
     if result["neighbors"]:
 
@@ -184,6 +204,7 @@ if st.button(
     st.subheader(
         "Top Important Features"
     )
+
 
     if result["features"]:
 
