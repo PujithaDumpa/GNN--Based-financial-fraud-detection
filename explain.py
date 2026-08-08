@@ -16,7 +16,7 @@ def create_explainer(model):
         model=model,
 
         algorithm=GNNExplainer(
-            epochs=20
+            epochs=50
         ),
 
         explanation_type="model",
@@ -63,7 +63,7 @@ def explain_transaction(
 
         node_id,
 
-        num_hops=2,
+        num_hops=3,
 
         edge_index=edge_index,
 
