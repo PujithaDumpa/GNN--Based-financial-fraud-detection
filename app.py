@@ -103,7 +103,7 @@ node_id = st.number_input(
     "Enter Transaction ID",
     min_value=0,
     max_value=data.num_nodes - 1,
-    value=1234,
+    value=0,
     step=1
 )
 
