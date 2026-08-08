@@ -3,8 +3,6 @@ from huggingface_hub import hf_hub_download
 import streamlit as st
 import torch
 
-from huggingface_hub import hf_hub_download
-
 from model import GAT
 from explain import (
     create_explainer,
@@ -21,7 +19,6 @@ st.set_page_config(
     page_icon="🔍",
     layout="wide"
 )
-
 
 st.title("🔍 Financial Fraud Detection using GAT")
 
@@ -61,10 +58,10 @@ data = load_data()
 # --------------------------------------------------
 
 @st.cache_resource
-def load_model(data):
+def load_model(num_features):
 
     model = GAT(
-        in_channels=data.num_features,
+        in_channels=num_features,
         hidden_channels=128,
         out_channels=2
     )
@@ -75,13 +72,14 @@ def load_model(data):
             map_location="cpu"
         )
     )
+
     model = model.to("cpu")
     model.eval()
 
     return model
 
 
-model = load_model(data)
+model = load_model(data.num_features)
 
 
 # --------------------------------------------------
@@ -89,9 +87,9 @@ model = load_model(data)
 # --------------------------------------------------
 
 @st.cache_resource
-def load_explainer(model):
+def load_explainer(_model):
 
-    return create_explainer(model)
+    return create_explainer(_model)
 
 
 explainer = load_explainer(model)
