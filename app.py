@@ -1,7 +1,6 @@
-from huggingface_hub import hf_hub_download
-
 import streamlit as st
 import torch
+from huggingface_hub import hf_hub_download
 
 from model import GAT
 from explain import (
@@ -69,7 +68,8 @@ def load_model(num_features):
     model.load_state_dict(
         torch.load(
             "best_gat_model.pth",
-            map_location="cpu"
+            map_location=torch.device("cpu"),
+            weights_only=True
         )
     )
 
@@ -128,7 +128,6 @@ if st.button(
             int(node_id)
         )
 
-
     # --------------------------------------------------
     # PREDICTION
     # --------------------------------------------------
@@ -136,15 +135,17 @@ if st.button(
     prediction = result["prediction"]
     confidence = result["confidence"]
 
-
     if prediction == 0:
 
-        st.error("🚨 Fraudulent Transaction")
+        st.error(
+            "🚨 Fraudulent Transaction"
+        )
 
     else:
 
-        st.success("✅ Legitimate Transaction")
-
+        st.success(
+            "✅ Legitimate Transaction"
+        )
 
     st.metric(
         "Confidence",
@@ -171,7 +172,9 @@ if st.button(
 
     else:
 
-        st.write("No influential neighbors found.")
+        st.write(
+            "No influential neighbors found."
+        )
 
 
     # --------------------------------------------------
@@ -193,5 +196,6 @@ if st.button(
 
     else:
 
-        st.write("No important features found.")
-
+        st.write(
+            "No important features found."
+        )
