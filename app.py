@@ -214,7 +214,6 @@ if st.button(
                     f"Transaction **{neighbor}** — "
                     f"Importance: **{importance:.4f}**"
                 )
-
         else:
 
             st.write(
