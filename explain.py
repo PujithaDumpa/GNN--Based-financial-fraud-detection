@@ -52,7 +52,7 @@ def explain_transaction(
     edge_index = data.edge_index.to(device)
 
     # ========================================================
-    # 1. PREDICTION ON FULL GRAPH
+    # 1. PREDICTION
     # ========================================================
 
     with torch.no_grad():
@@ -83,38 +83,25 @@ def explain_transaction(
     # ========================================================
     # 2. CREATE LOCAL 2-HOP SUBGRAPH
     # ========================================================
-    #
-    # Instead of giving GNNExplainer the entire
-    # 203,769-node graph, we only give it the
-    # neighborhood surrounding the selected transaction.
-    #
-    # Your GAT has 2 layers -> 2-hop neighborhood.
-    # ========================================================
 
-    subset, sub_edge_index, mapping, edge_mask = (
-        k_hop_subgraph(
-            node_id,
-            num_hops=2,
-            edge_index=edge_index,
-            relabel_nodes=True
-        )
+    subset, sub_edge_index, mapping, _ = k_hop_subgraph(
+        node_id,
+        num_hops=2,
+        edge_index=edge_index,
+        relabel_nodes=True
     )
 
     sub_x = x[subset]
 
-    # --------------------------------------------------------
-    # Position of original node inside subgraph
-    # --------------------------------------------------------
-
     local_node_id = mapping.item()
 
     # ========================================================
-    # 3. RUN GNNEXPLAINER
+    # 3. RUN GNN EXPLAINER
     # ========================================================
 
     explanation = explainer(
-        sub_x,
-        sub_edge_index,
+        x=sub_x,
+        edge_index=sub_edge_index,
         index=local_node_id
     )
 
@@ -124,77 +111,59 @@ def explain_transaction(
 
     node_mask = explanation.node_mask
 
-    # node_mask:
-    #
-    # [number_of_local_nodes, number_of_features]
-    #
-    # We only want the selected transaction.
-    # --------------------------------------------------------
-
-    if node_mask.dim() == 2:
-
-        feature_importance = (
-            node_mask[local_node_id]
-        )
+    if node_mask is None:
+        important_features = []
 
     else:
 
-        feature_importance = node_mask
+        if node_mask.dim() == 2:
 
-    # --------------------------------------------------------
-    # Absolute importance
-    # --------------------------------------------------------
+            feature_importance = node_mask[
+                local_node_id
+            ]
 
-    feature_importance = (
-        feature_importance.abs()
-    )
+        else:
 
-    # --------------------------------------------------------
-    # Top 10 features
-    # --------------------------------------------------------
+            feature_importance = node_mask
 
-    k = min(
-        10,
-        feature_importance.numel()
-    )
+        feature_importance = feature_importance.abs()
 
-    top_values, top_indices = torch.topk(
-        feature_importance,
-        k=k
-    )
-
-    important_features = []
-
-    for feature, score in zip(
-        top_indices,
-        top_values
-    ):
-
-        important_features.append(
-            (
-                feature.item(),
-                score.item()
-            )
+        k = min(
+            10,
+            feature_importance.numel()
         )
 
+        top_values, top_indices = torch.topk(
+            feature_importance,
+            k=k
+        )
+
+        important_features = []
+
+        for feature, score in zip(
+            top_indices,
+            top_values
+        ):
+
+            important_features.append(
+                (
+                    feature.item(),
+                    score.item()
+                )
+            )
+
     # ========================================================
-    # 5. IMPORTANT EDGES / NEIGHBORS
+    # 5. IMPORTANT NEIGHBORS
     # ========================================================
 
     neighbors = []
 
-    if explanation.edge_mask is not None:
+    explanation_edge_mask = explanation.edge_mask
 
-        explanation_edge_mask = (
-            explanation.edge_mask
-        )
-
-        # ----------------------------------------------------
-        # Top edges according to GNNExplainer
-        # ----------------------------------------------------
+    if explanation_edge_mask is not None:
 
         edge_k = min(
-            10,
+            20,
             explanation_edge_mask.numel()
         )
 
@@ -208,23 +177,17 @@ def explain_transaction(
             edge_values
         ):
 
-            source = (
-                sub_edge_index[
-                    0,
-                    edge_idx
-                ].item()
-            )
+            source = sub_edge_index[
+                0,
+                edge_idx
+            ].item()
 
-            target = (
-                sub_edge_index[
-                    1,
-                    edge_idx
-                ].item()
-            )
+            target = sub_edge_index[
+                1,
+                edge_idx
+            ].item()
 
-            # ------------------------------------------------
-            # Only show edges involving selected node
-            # ------------------------------------------------
+            # Only edges connected to selected node
 
             if source == local_node_id:
 
@@ -238,15 +201,9 @@ def explain_transaction(
 
                 continue
 
-            # ------------------------------------------------
-            # Convert local node ID back to original ID
-            # ------------------------------------------------
-
-            neighbor_original = (
-                subset[
-                    neighbor_local
-                ].item()
-            )
+            neighbor_original = subset[
+                neighbor_local
+            ].item()
 
             # Remove self-loop
 
@@ -260,19 +217,15 @@ def explain_transaction(
                 )
             )
 
-    # --------------------------------------------------------
-    # Sort neighbors by importance
-    # --------------------------------------------------------
+    # ========================================================
+    # 6. SORT AND REMOVE DUPLICATES
+    # ========================================================
 
     neighbors = sorted(
         neighbors,
         key=lambda x: x[1],
         reverse=True
     )
-
-    # --------------------------------------------------------
-    # Remove duplicate neighbors
-    # --------------------------------------------------------
 
     unique_neighbors = []
 
@@ -294,7 +247,7 @@ def explain_transaction(
     top_neighbors = unique_neighbors[:5]
 
     # ========================================================
-    # 6. RETURN RESULTS
+    # 7. RETURN RESULTS
     # ========================================================
 
     return {
