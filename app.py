@@ -200,7 +200,8 @@ if st.button(
                 model,
                 data,
                 explainer,
-                node_id
+                node_id,
+                classes
             )
 
 
