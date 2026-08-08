@@ -54,7 +54,7 @@ data = load_data()
 
 
 # --------------------------------------------------
-# CREATE MODEL
+# LOAD TRAINED GAT MODEL
 # --------------------------------------------------
 
 @st.cache_resource
@@ -134,7 +134,6 @@ if st.button(
     # --------------------------------------------------
 
     prediction = result["prediction"]
-
     confidence = result["confidence"]
 
 
@@ -161,13 +160,18 @@ if st.button(
         "Top Influential Neighbors"
     )
 
+    if result["neighbors"]:
 
-    for neighbor, attention in result["neighbors"]:
+        for neighbor, attention in result["neighbors"]:
 
-        st.write(
-            f"Transaction **{neighbor}** — "
-            f"Attention: **{attention:.4f}**"
-        )
+            st.write(
+                f"Transaction **{neighbor}** — "
+                f"Attention: **{attention:.4f}**"
+            )
+
+    else:
+
+        st.write("No influential neighbors found.")
 
 
     # --------------------------------------------------
@@ -178,10 +182,16 @@ if st.button(
         "Top Important Features"
     )
 
+    if result["features"]:
 
-    for feature, importance in result["features"]:
+        for feature, importance in result["features"]:
 
-        st.write(
-            f"Feature **{feature}** — "
-            f"Importance: **{importance:.4f}**"
-        )
+            st.write(
+                f"Feature **{feature}** — "
+                f"Importance: **{importance:.4f}**"
+            )
+
+    else:
+
+        st.write("No important features found.")
+
