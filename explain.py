@@ -165,110 +165,101 @@ def explain_transaction(
                 )
             )
 
-
-    # ========================================================
-    # 5. IMPORTANT NEIGHBORS
-    # ========================================================
+    # ============================================================
+    # IMPORTANT NEIGHBORS
+    # ============================================================
 
     neighbors = []
 
     explanation_edge_mask = explanation.edge_mask
 
-
     if explanation_edge_mask is not None:
 
-        edge_k = min(
-            20,
-            explanation_edge_mask.numel()
-        )
+     for edge_idx in range(
+           explanation_edge_mask.numel()
+     ):
 
+        importance = explanation_edge_mask[
+            edge_idx
+        ].item()
 
-        edge_values, edge_indices = torch.topk(
-            explanation_edge_mask,
-            k=edge_k
-        )
+        source = sub_edge_index[
+            0,
+            edge_idx
+        ].item()
 
+        target = sub_edge_index[
+            1,
+            edge_idx
+        ].item()
 
-        for edge_idx, importance in zip(
-            edge_indices,
-            edge_values
-        ):
+        # Keep only edges directly connected
+        # to the transaction being explained
 
-            source = sub_edge_index[
-                0,
-                edge_idx
-            ].item()
+        if source == local_node_id:
 
+            neighbor_local = target
 
-            target = sub_edge_index[
-                1,
-                edge_idx
-            ].item()
+        elif target == local_node_id:
 
+            neighbor_local = source
 
-            if source == local_node_id:
+        else:
 
-                neighbor_local = target
+            continue
 
-            elif target == local_node_id:
+        neighbor_original = subset[
+            neighbor_local
+        ].item()
 
-                neighbor_local = source
+        # Remove self-loop
 
-            else:
+        if neighbor_original == node_id:
+            continue
 
-                continue
-
-
-            neighbor_original = subset[
-                neighbor_local
-            ].item()
-
-
-            if neighbor_original == node_id:
-
-                continue
-
-
-            neighbors.append(
-                (
-                    neighbor_original,
-                    importance.item()
-                )
+        neighbors.append(
+            (
+                neighbor_original,
+                importance
             )
+        )
 
 
-    # ========================================================
-    # 6. REMOVE DUPLICATES
-    # ========================================================
+   # ============================================================
+   # SORT NEIGHBORS
+   # ============================================================
 
-    neighbors.sort(
-        key=lambda x: x[1],
-        reverse=True
+    neighbors = sorted(
+      neighbors,
+      key=lambda x: x[1],
+      reverse=True 
     )
 
+
+# ============================================================
+# REMOVE DUPLICATES
+# ============================================================
 
     unique_neighbors = []
 
     seen = set()
 
-
     for neighbor, importance in neighbors:
 
-        if neighbor not in seen:
+       if neighbor not in seen:
 
-            unique_neighbors.append(
-                (
-                    neighbor,
-                    importance
-                )
+         unique_neighbors.append(
+            (
+                neighbor,
+                importance
             )
+         )
 
-            seen.add(neighbor)
+         seen.add(neighbor)
 
 
+# Top 5
     top_neighbors = unique_neighbors[:5]
-
-
     # ========================================================
     # 7. RETURN
     # ========================================================
