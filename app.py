@@ -184,97 +184,63 @@ node_id = st.number_input(
 # ============================================================
 # EXPLAIN BUTTON
 # ============================================================
-
 if st.button(
     "Explain Transaction",
     type="primary"
 ):
 
-    node_id = int(node_id)
+    try:
 
-    with st.spinner(
-        "Running GNNExplainer on local transaction neighborhood..."
-    ):
+        with st.spinner("Preparing GNN explainer..."):
 
-        try:
+            explainer = create_explainer(model)
+
+        with st.spinner("Generating prediction and explanation..."):
 
             result = explain_transaction(
-                model=model,
-                data=data,
-                explainer=explainer,
-                node_id=node_id
+                model,
+                data,
+                explainer,
+                int(node_id)
             )
 
-        except Exception as e:
+    except Exception as e:
 
-            st.error(
-                "Error while generating explanation."
-            )
+        st.error("❌ Error while generating explanation")
+        st.exception(e)
+        st.stop()
 
-            st.exception(e)
-
-            st.stop()
-
-    # ========================================================
-    # PREDICTION
-    # ========================================================
-
+    # Prediction
     prediction = result["prediction"]
-
     confidence = result["confidence"]
 
-
     if prediction == 0:
-
-        st.error(
-            "🚨 Fraudulent Transaction"
-        )
-
+        st.error("🚨 Fraudulent Transaction")
     else:
-
-        st.success(
-            "✅ Legitimate Transaction"
-        )
-
+        st.success("✅ Legitimate Transaction")
 
     st.metric(
         "Confidence",
         f"{confidence * 100:.2f}%"
     )
 
-
-    # ========================================================
-    # IMPORTANT NEIGHBORS
-    # ========================================================
-
-    st.subheader(
-        "🔗 Top Influential Neighbors"
-    )
+    # Important neighbors
+    st.subheader("Top Influential Neighbors")
 
     if result["neighbors"]:
 
-        for neighbor, importance in result["neighbors"]:
+        for neighbor, attention in result["neighbors"]:
 
             st.write(
                 f"Transaction **{neighbor}** — "
-                f"GNNExplainer Importance: "
-                f"**{importance:.4f}**"
+                f"Attention: **{attention:.4f}**"
             )
 
     else:
+        st.write("No influential neighbors found.")
 
-        st.write(
-            "No influential neighbors found."
-        )
-
-
-    # ========================================================
-    # IMPORTANT FEATURES
-    # ========================================================
-
-    st.subheader(
-        "📊 Top Important Features"
-    )
+    # Important features
+    st.subheader("Top Important Features")
 
     if result["features"]:
 
@@ -282,11 +248,8 @@ if st.button(
 
             st.write(
                 f"Feature **{feature}** — "
-                f"Importance: **{importance:.6f}**"
+                f"Importance: **{importance:.4f}**"
             )
 
     else:
-
-        st.write(
-            "No important features found."
-        )
+        st.write("No important features found.")
