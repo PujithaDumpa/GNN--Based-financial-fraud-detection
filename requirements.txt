@@ -4,3 +4,4 @@ torch-geometric
 scikit-learn
 numpy
 pandas
+huggingface-hub
