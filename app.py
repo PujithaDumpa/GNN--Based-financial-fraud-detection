@@ -197,52 +197,30 @@ if st.button(
         )
 
 
-       # ============================================================
-# GNNEXPLAINER NEIGHBORS
-# ============================================================
+        # ============================================================
+        # GNNEXPLAINER NEIGHBORS
+        # ============================================================
 
-st.subheader(
-    "Top Influential Neighbors"
-)
-
-if result["neighbors"]:
-
-    for neighbor, importance in result["neighbors"]:
-
-        st.write(
-            f"Transaction **{neighbor}** — "
-            f"GNNExplainer Importance: **{importance:.4f}**"
+        st.subheader(
+            "Top Influential Neighbors"
         )
 
-else:
+        if result["neighbors"]:
 
-    st.write(
-        "No influential neighbors found."
-    )
+            for neighbor, importance in result["neighbors"]:
+
+               st.write(
+                    f"Transaction **{neighbor}** — "
+                    f"GNNExplainer Importance: **{importance:.4f}**"
+               )
+
+        else:
+
+            st.write(
+              "No influential neighbors found."
+            )
 
 
-# ============================================================
-# GAT ATTENTION NEIGHBORS
-# ============================================================
-
-st.subheader(
-    "Top GAT Attention Neighbors"
-)
-
-if result["attention_neighbors"]:
-
-    for neighbor, attention in result["attention_neighbors"]:
-
-        st.write(
-            f"Transaction **{neighbor}** — "
-            f"GAT Attention: **{attention:.4f}**"
-        )
-
-else:
-
-    st.write(
-        "No GAT attention neighbors found."
-    )
         # ====================================================
         # FEATURES
         # ====================================================
