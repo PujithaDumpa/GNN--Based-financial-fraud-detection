@@ -2,7 +2,6 @@ import torch
 
 from torch_geometric.explain import Explainer
 from torch_geometric.explain.algorithm import GNNExplainer
-from torch_geometric.utils import k_hop_subgraph
 
 
 # ============================================================
@@ -12,7 +11,6 @@ from torch_geometric.utils import k_hop_subgraph
 def create_explainer(model):
 
     return Explainer(
-
         model=model,
 
         algorithm=GNNExplainer(
@@ -50,41 +48,24 @@ def explain_transaction(
 
     model.eval()
 
+    # ========================================================
+    # FULL GRAPH
+    # ========================================================
+
     x = data.x.to(device)
 
     edge_index = data.edge_index.to(device)
 
 
     # ========================================================
-    # 1. CREATE LOCAL 2-HOP SUBGRAPH
-    # ========================================================
-
-    subset, sub_edge_index, mapping, _ = k_hop_subgraph(
-
-        node_id,
-
-        num_hops=2,
-
-        edge_index=edge_index,
-
-        relabel_nodes=True
-    )
-
-
-    sub_x = x[subset]
-
-    local_node_id = mapping.item()
-
-
-    # ========================================================
-    # 2. PREDICTION ON LOCAL GRAPH
+    # 1. PREDICTION
     # ========================================================
 
     with torch.no_grad():
 
         output = model(
-            sub_x,
-            sub_edge_index
+            x,
+            edge_index
         )
 
         probabilities = torch.softmax(
@@ -93,31 +74,28 @@ def explain_transaction(
         )
 
         prediction = output[
-            local_node_id
+            node_id
         ].argmax().item()
 
         confidence = probabilities[
-            local_node_id,
+            node_id,
             prediction
         ].item()
 
 
     # ========================================================
-    # 3. RUN GNNEXPLAINER
+    # 2. RUN GNNEXPLAINER ON FULL GRAPH
     # ========================================================
 
     explanation = explainer(
-
-        x=sub_x,
-
-        edge_index=sub_edge_index,
-
-        index=local_node_id
+        x=x,
+        edge_index=edge_index,
+        index=node_id
     )
 
 
     # ========================================================
-    # 4. FEATURE IMPORTANCE
+    # 3. FEATURE IMPORTANCE
     # ========================================================
 
     node_mask = explanation.node_mask
@@ -130,7 +108,7 @@ def explain_transaction(
         if node_mask.dim() == 2:
 
             feature_importance = node_mask[
-                local_node_id
+                node_id
             ]
 
         else:
@@ -138,7 +116,9 @@ def explain_transaction(
             feature_importance = node_mask
 
 
-        feature_importance = feature_importance.abs()
+        feature_importance = (
+            feature_importance.abs()
+        )
 
 
         k = min(
@@ -167,18 +147,20 @@ def explain_transaction(
 
 
     # ========================================================
-    # 5. IMPORTANT NEIGHBORS
+    # 4. IMPORTANT NEIGHBORS
     # ========================================================
 
     neighbors = []
 
-    explanation_edge_mask = explanation.edge_mask
+    explanation_edge_mask = (
+        explanation.edge_mask
+    )
 
 
     if explanation_edge_mask is not None:
 
         edge_k = min(
-            20,
+            50,
             explanation_edge_mask.numel()
         )
 
@@ -194,51 +176,51 @@ def explain_transaction(
             edge_values
         ):
 
-            source = sub_edge_index[
+            source = edge_index[
                 0,
                 edge_idx
             ].item()
 
 
-            target = sub_edge_index[
+            target = edge_index[
                 1,
                 edge_idx
             ].item()
 
 
-            if source == local_node_id:
+            # Only edges connected to
+            # the selected transaction.
 
-                neighbor_local = target
+            if source == node_id:
 
-            elif target == local_node_id:
+                neighbor = target
 
-                neighbor_local = source
+            elif target == node_id:
+
+                neighbor = source
 
             else:
 
                 continue
 
 
-            neighbor_original = subset[
-                neighbor_local
-            ].item()
+            # Remove self-loop.
 
-
-            if neighbor_original == node_id:
+            if neighbor == node_id:
 
                 continue
 
 
             neighbors.append(
                 (
-                    neighbor_original,
+                    neighbor,
                     importance.item()
                 )
             )
 
 
     # ========================================================
-    # 6. REMOVE DUPLICATES
+    # 5. SORT NEIGHBORS
     # ========================================================
 
     neighbors.sort(
@@ -246,6 +228,10 @@ def explain_transaction(
         reverse=True
     )
 
+
+    # ========================================================
+    # 6. REMOVE DUPLICATES
+    # ========================================================
 
     unique_neighbors = []
 
@@ -270,7 +256,7 @@ def explain_transaction(
 
 
     # ========================================================
-    # 7. RETURN
+    # 7. RETURN RESULTS
     # ========================================================
 
     return {
@@ -283,10 +269,6 @@ def explain_transaction(
 
         "neighbors": top_neighbors,
 
-        "features": important_features,
-
-        "local_nodes": sub_x.size(0),
-
-        "local_edges": sub_edge_index.size(1)
+        "features": important_features
 
     }
