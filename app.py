@@ -46,6 +46,7 @@ def load_data():
 
     data = torch.load(
         data_path,
+        map_location=torch.device("cpu"),
         weights_only=False
     )
 
@@ -74,7 +75,7 @@ def load_model(data):
             map_location="cpu"
         )
     )
-
+    model = model.to("cpu")
     model.eval()
 
     return model
