@@ -1,4 +1,3 @@
-
 import streamlit as st
 import torch
 
@@ -13,7 +12,7 @@ from explain import (
 
 
 # ============================================================
-# PAGE
+# PAGE CONFIGURATION
 # ============================================================
 
 st.set_page_config(
@@ -23,15 +22,24 @@ st.set_page_config(
 )
 
 
+# ============================================================
+# TITLE
+# ============================================================
+
 st.title(
     "🔍 Financial Fraud Detection using GAT"
 )
+
 
 st.write(
     "Enter a transaction ID to obtain a fraud prediction "
     "and GNNExplainer-based explanation."
 )
 
+
+# ============================================================
+# DEVICE
+# ============================================================
 
 DEVICE = torch.device("cpu")
 
@@ -49,21 +57,36 @@ def load_data():
         repo_type="model"
     )
 
+
     data = torch.load(
         data_path,
         map_location=DEVICE,
         weights_only=False
     )
 
+
     return data
 
 
-data = load_data()
+try:
+
+    data = load_data()
 
 
-st.success(
-    f"Graph loaded: {data.num_nodes:,} transactions"
-)
+    st.success(
+        f"Graph loaded: {data.num_nodes:,} transactions"
+    )
+
+
+except Exception as e:
+
+    st.error(
+        "Failed to load graph."
+    )
+
+    st.exception(e)
+
+    st.stop()
 
 
 # ============================================================
@@ -79,31 +102,48 @@ def load_model(num_features):
         out_channels=2
     )
 
+
     state_dict = torch.load(
         "best_gat_model.pth",
         map_location=DEVICE,
         weights_only=True
     )
 
+
     model.load_state_dict(
         state_dict
     )
+
 
     model = model.to(DEVICE)
 
     model.eval()
 
+
     return model
 
 
-model = load_model(
-    data.num_features
-)
+try:
+
+    model = load_model(
+        data.num_features
+    )
 
 
-st.success(
-    "GAT model loaded successfully."
-)
+    st.success(
+        "GAT model loaded successfully."
+    )
+
+
+except Exception as e:
+
+    st.error(
+        "Failed to load GAT model."
+    )
+
+    st.exception(e)
+
+    st.stop()
 
 
 # ============================================================
@@ -124,7 +164,7 @@ node_id = st.number_input(
 
 
 # ============================================================
-# EXPLAIN
+# EXPLAIN TRANSACTION
 # ============================================================
 
 if st.button(
@@ -134,13 +174,26 @@ if st.button(
 
     try:
 
+        # ====================================================
+        # CREATE EXPLAINER
+        # ====================================================
+
         with st.spinner(
-            "Running GNNExplainer..."
+            "Creating GNNExplainer..."
         ):
 
             explainer = create_explainer(
                 model
             )
+
+
+        # ====================================================
+        # RUN EXPLANATION
+        # ====================================================
+
+        with st.spinner(
+            "Running GNNExplainer on full graph..."
+        ):
 
             result = explain_transaction(
                 model,
@@ -179,50 +232,33 @@ if st.button(
 
 
         # ====================================================
-        # LOCAL GRAPH
+        # IMPORTANT NEIGHBORS
         # ====================================================
-
-        st.subheader(
-            "Local Graph"
-        )
-
-        st.write(
-            "Local nodes:",
-            result["local_nodes"]
-        )
-
-        st.write(
-            "Local edges:",
-            result["local_edges"]
-        )
-
-
-        # ============================================================
-        # GNNEXPLAINER NEIGHBORS
-        # ============================================================
 
         st.subheader(
             "Top Influential Neighbors"
         )
 
+
         if result["neighbors"]:
 
             for neighbor, importance in result["neighbors"]:
 
-               st.write(
+                st.write(
                     f"Transaction **{neighbor}** — "
-                    f"GNNExplainer Importance: **{importance:.4f}**"
-               )
+                    f"GNNExplainer Importance: "
+                    f"**{importance:.4f}**"
+                )
 
         else:
 
             st.write(
-              "No influential neighbors found."
+                "No influential neighbors found."
             )
 
 
         # ====================================================
-        # FEATURES
+        # IMPORTANT FEATURES
         # ====================================================
 
         st.subheader(
@@ -245,6 +281,10 @@ if st.button(
                 "No important features found."
             )
 
+
+    # ========================================================
+    # ERROR HANDLING
+    # ========================================================
 
     except Exception as e:
 
