@@ -40,7 +40,8 @@ def explain_transaction(
     model,
     data,
     explainer,
-    node_id
+    node_id,
+    classes
 ):
 
     device = torch.device("cpu")
@@ -251,6 +252,10 @@ def explain_transaction(
                 ]
                 .item()
             )
+            neighbor_txid = str(
+              classes.iloc[neighbor_original]["txId"]
+            )
+            
 
 
             # ------------------------------------------------
@@ -271,13 +276,11 @@ def explain_transaction(
                 or
                 importance >
                 neighbors[
-                    neighbor_original
+                    neighbor_txid
                 ]
             ):
 
-                neighbors[
-                    neighbor_original
-                ] = importance
+                neighbors[neighbor_txid] = importance
 
 
     # ========================================================
