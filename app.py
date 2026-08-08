@@ -197,53 +197,52 @@ if st.button(
         )
 
 
-        # ====================================================
-        # NEIGHBORS
-        # ====================================================
+       # ============================================================
+# GNNEXPLAINER NEIGHBORS
+# ============================================================
 
-        st.subheader(
-            "Top Influential Neighbors"
+st.subheader(
+    "Top Influential Neighbors"
+)
+
+if result["neighbors"]:
+
+    for neighbor, importance in result["neighbors"]:
+
+        st.write(
+            f"Transaction **{neighbor}** — "
+            f"GNNExplainer Importance: **{importance:.4f}**"
         )
 
+else:
 
-        if result["neighbors"]:
+    st.write(
+        "No influential neighbors found."
+    )
 
-            for neighbor, importance in result["neighbors"]:
 
-                st.write(
-                    f"Transaction **{neighbor}** — "
-                    f"Importance: **{importance:.4f}**"
-                )
-        else:
+# ============================================================
+# GAT ATTENTION NEIGHBORS
+# ============================================================
 
-            st.write(
-                "No influential neighbors found."
-            )
+st.subheader(
+    "Top GAT Attention Neighbors"
+)
 
-        # ============================================================
-        # GAT ATTENTION
-        # ============================================================
+if result["attention_neighbors"]:
 
-        st.subheader(
-            "Top GAT Attention Neighbors"
+    for neighbor, attention in result["attention_neighbors"]:
+
+        st.write(
+            f"Transaction **{neighbor}** — "
+            f"GAT Attention: **{attention:.4f}**"
         )
 
-        if result["attention_neighbors"]:
+else:
 
-            for neighbor, attention in result["attention_neighbors"]:
-
-                 st.write(
-                  f"Transaction **{neighbor}** — "
-                  f"GAT Attention: **{attention:.4f}**"
-                 )
-
-         else:
-
-                 st.write(
-                     "No GAT attention neighbors found."
-                 )
-
-
+    st.write(
+        "No GAT attention neighbors found."
+    )
         # ====================================================
         # FEATURES
         # ====================================================
