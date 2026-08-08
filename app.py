@@ -1,6 +1,7 @@
 
 import streamlit as st
 import torch
+import pandas as pd
 
 from huggingface_hub import hf_hub_download
 
@@ -60,6 +61,32 @@ def load_data():
 
 data = load_data()
 st.write(data)
+# ============================================================
+# LOAD ORIGINAL ELLIPTIC TRANSACTION IDs
+# ============================================================
+
+classes = pd.read_csv("classes.csv")
+
+if len(classes) != data.num_nodes:
+
+    st.error(
+        f"Dataset mismatch: classes.csv contains "
+        f"{len(classes)} transactions, but the graph contains "
+        f"{data.num_nodes} nodes."
+    )
+
+    st.stop()
+
+
+# Convert transaction IDs to strings
+classes["txId"] = classes["txId"].astype(str)
+
+
+# Map actual transaction ID → PyG node index
+txid_to_node = {
+    txid: index
+    for index, txid in enumerate(classes["txId"])
+}
 
 
 st.success(
@@ -111,27 +138,53 @@ st.success(
 # TRANSACTION ID
 # ============================================================
 
-node_id = st.number_input(
-    "Enter Transaction ID",
-
-    min_value=0,
-
-    max_value=data.num_nodes - 1,
-
-    value=0,
-
-    step=1
+transaction_id = st.text_input(
+    "Enter Elliptic Transaction ID",
+    placeholder="Example: 232438397"
 )
 
 
 # ============================================================
 # EXPLAIN
 # ============================================================
-
 if st.button(
     "Explain Transaction",
     type="primary"
 ):
+
+    transaction_id = transaction_id.strip()
+
+    if transaction_id == "":
+
+        st.warning(
+            "Please enter a transaction ID."
+        )
+
+        st.stop()
+
+
+    if transaction_id not in txid_to_node:
+
+        st.error(
+            "Transaction ID not found in the Elliptic dataset."
+        )
+
+        st.stop()
+
+
+    # Convert actual txId → internal node index
+
+    node_id = txid_to_node[transaction_id]
+
+
+    st.write(
+        f"Transaction ID: **{transaction_id}**"
+    )
+
+    st.write(
+        f"Internal node index: **{node_id}**"
+    )
+
 
     try:
 
@@ -147,7 +200,7 @@ if st.button(
                 model,
                 data,
                 explainer,
-                int(node_id)
+                node_id
             )
 
 
@@ -198,9 +251,9 @@ if st.button(
         )
 
 
-        # ============================================================
+        # ====================================================
         # GNNEXPLAINER NEIGHBORS
-        # ============================================================
+        # ====================================================
 
         st.subheader(
             "Top Influential Neighbors"
@@ -210,26 +263,26 @@ if st.button(
 
             for neighbor, importance in result["neighbors"]:
 
-               st.write(
-                    f"Transaction **{neighbor}** — "
-                    f"GNNExplainer Importance: **{importance:.4f}**"
-               )
+                st.write(
+                    f"Node **{neighbor}** — "
+                    f"GNNExplainer Importance: "
+                    f"**{importance:.4f}**"
+                )
 
         else:
 
             st.write(
-              "No influential neighbors found."
+                "No influential neighbors found."
             )
 
 
         # ====================================================
-        # FEATURES
+        # IMPORTANT FEATURES
         # ====================================================
 
         st.subheader(
             "Top Important Features"
         )
-
 
         if result["features"]:
 
