@@ -221,6 +221,29 @@ if st.button(
                 "No influential neighbors found."
             )
 
+        # ============================================================
+        # GAT ATTENTION
+        # ============================================================
+
+        st.subheader(
+            "Top GAT Attention Neighbors"
+        )
+
+        if result["attention_neighbors"]:
+
+            for neighbor, attention in result["attention_neighbors"]:
+
+                 st.write(
+                  f"Transaction **{neighbor}** — "
+                  f"GAT Attention: **{attention:.4f}**"
+                 )
+
+         else:
+
+                 st.write(
+                     "No GAT attention neighbors found."
+                 )
+
 
         # ====================================================
         # FEATURES
