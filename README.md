@@ -370,24 +370,9 @@ The application will open in your browser.
 * Transaction-level prediction
 * Prediction confidence
 * Attention-based neighbor analysis
-* GNN explainability
+* GNN Explainability
 * Interactive Streamlit interface
 * Model evaluation using multiple classification metrics
-
-## 🔮 Future Improvements
-
-Possible extensions include:
-
-* Temporal GNNs for better modeling of transaction time.
-* GraphSAGE and other GNN architectures for comparison.
-* Graph-level fraud pattern detection.
-* Advanced explainability using GNNExplainer.
-* Hyperparameter optimization.
-* Class-imbalance handling using focal loss or weighted loss.
-* Real-time transaction monitoring.
-* Anomaly detection for previously unseen fraud patterns.
-* Improved visualization of suspicious transaction subgraphs.
-* Integration with a real-time fraud detection pipeline.
 
 ## 📚 References
 
