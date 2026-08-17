@@ -287,7 +287,7 @@ if st.button(
 
         if result["features"]:
 
-            for txid, importance in result["neighbors"]:
+            for txid, importance in result["features"]:
 
                st.write(
                   f"Transaction **{txid}** — "
