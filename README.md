@@ -290,35 +290,6 @@ Important Neighbors:
 3. Node XXXX
 ```
 
-## 📁 Project Structure
-
-```text
-gnn-fraud-detection/
-│
-├── data/
-│   └── README.md
-│
-├── models/
-│   └── gat_model.py
-│
-├── notebooks/
-│   ├── data_preprocessing.ipynb
-│   ├── gcn_training.ipynb
-│   └── gat_training.ipynb
-│
-├── src/
-│   ├── preprocessing.py
-│   ├── graph_construction.py
-│   ├── train.py
-│   ├── evaluate.py
-│   └── explainability.py
-│
-├── app.py
-├── requirements.txt
-├── README.md
-└── .gitignore
-```
-
 ## 🚀 Installation
 
 Clone the repository:
